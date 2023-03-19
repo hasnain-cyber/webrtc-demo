@@ -14,19 +14,19 @@ const peerConnection = new RTCPeerConnection(servers);
 let localStream = null;
 let remoteStream = null;
 
+// getting the html elements from dom
 const webcamButton = document.getElementById('webcamButton');
 const webcamVideo = document.getElementById('webcamVideo');
 const callButton = document.getElementById('callButton');
 const callInput = document.getElementById('callInput');
 const answerButton = document.getElementById('answerButton');
 const remoteVideo = document.getElementById('remoteVideo');
-const hangupButton = document.getElementById('hangupButton');
 
 webcamButton.onclick = async () => {
   localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   remoteStream = new MediaStream();
 
-  // this is to add the local stream to the peer connection
+  // now add all the tracks of localStream to the peerConnection object, tracks refer to the different types of data 'streams' that consist of the localStream, like audio, video, etc.
   localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
   // this is to show the remote stream on the remote video element
@@ -52,12 +52,15 @@ callButton.onclick = async () => {
 
   callInput.value = callDoc.id;
 
+  // add ice candidate to collection doc, as it is generated.
   peerConnection.onicecandidate = event => {
     event.candidate && addDoc(offerCandidates, event.candidate.toJSON());
   }
 
   // this is to create an offer
   const offerDescription = await peerConnection.createOffer();
+  // as soon as the local or remote description are set, the ice candidate generation starts.
+  // which is taken care of by the onicecandidate event listener above.
   await peerConnection.setLocalDescription(offerDescription);
 
   const offer = {
@@ -67,6 +70,7 @@ callButton.onclick = async () => {
 
   await setDoc(callDoc, { offer });
 
+  // check to receive the call.
   onSnapshot(callDoc, (snapshot) => {
     const data = snapshot.data();
     if (!peerConnection.currentRemoteDescription && data?.answer) {
@@ -75,6 +79,7 @@ callButton.onclick = async () => {
     }
   });
   
+  // to keep track of alternate ice candidates on the remote side.
   onSnapshot(answerCandidates, (snapshot) => {
     snapshot.docChanges().forEach((change) => {
       if (change.type === 'added') {
